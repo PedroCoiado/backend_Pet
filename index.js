@@ -7,11 +7,15 @@ const mysql = require('mysql2');
 
 const cors = require('cors');
 
+const path = require('path');
+
+
 //importar a biblioteca do bcrypt
 //para a criptografia de senha
 const bcrypt = require("bcrypt");
 // Importar a biblioteca do jwt 
 const jwt = require("jsonwebtoken");
+const { pathToFileURL } = require('url');
 
 
 // Carregar a função que manipula dados em formatos JSON, ou seja (Delete, Ler, Gravar, Atualizar)
@@ -41,6 +45,10 @@ app.use(express.json());
 
 // Ativar o modulo do cors
 app.use(cors());
+
+app.use(express.static('fotos'));
+
+
 
 
 
@@ -135,32 +143,40 @@ app.put('/atualizar_user/:ID_Usuario', (req, res) => {
 
     // ==========================================================================================
 
-
+  app.get('/fotos', (req, res) => {
+      res.sendFile(__dirname +"/fotos/id1photo.png");
+  });
 
 //Login
 app.post('/login', (req, res) => {
   const { Email_usuario, Senha_usuario } = req.body;
-
-  con.query("SELECT * FROM usuario WHERE Email_usuario = ?", [Email_usuario], (err, results) => {
+  console.log(Senha_usuario)
+  con.query("SELECT us.ID_Usuario, us.Email_usuario, us.Senha_usuario, us.Foto_usuario, us.Tipo_usuario, dp.Nome, dp.Sobrenome FROM usuario us INNER JOIN dados_pessoais dp ON us.ID_Usuario = dp.ID_Usuario WHERE  us.Email_usuario = ?", [Email_usuario], (err, results) => {
     if (err || results.length === 0) {
       return res.status(401).send({ msg: "Usuário ou senha inválidos" });
     }
 
     const usuario = results[0];
-
-    if (usuario.Tipo_usuario ==null) {
-      return res.send({ msg: "Altere seu tipo de perfil."});
-    
-    }
-
-
+    console.log(usuario)
 
     // Verifica a senha com bcrypt
     bcrypt.compare(Senha_usuario, usuario.Senha_usuario, (erro, batem) => {
       if (erro || !batem) {
-        return res.status(401).send({ msg: "Senha incorreta" });
+        return res.status(401).send({ msg: "Usuário ou senha inválidos" });
       }
-
+      if (usuario.Tipo_usuario ==null || usuario.Tipo_usuario.trim() === '') {
+        return res.status(200).send({ 
+          msg: "Altere seu tipo de perfil.", 
+          usuario: {
+  
+            id: usuario.ID_Usuario,
+            email: usuario.Email_usuario,
+            nome: usuario.Nome,
+            sobrenome: usuario.Sobrenome,
+            foto:usuario.Foto_usuario // ajuste conforme o nome do campo
+          }})
+        }
+          else{        
       // Se autenticado com sucesso
       return res.status(200).send({ 
         msg: "Login realizado com sucesso", 
@@ -168,12 +184,14 @@ app.post('/login', (req, res) => {
 
           id: usuario.ID_Usuario,
           email: usuario.Email_usuario,
-          nome: usuario.Nome_usuario,
+          nome: usuario.Nome,
+          sobrenome: usuario.Sobrenome, 
           foto: usuario.Foto_usuario // ajuste conforme o nome do campo
         }
-      });
-    });
+      })
+    }
   });
+});
 });
 
 
@@ -205,27 +223,156 @@ con.query
 
 
 // Atualizar meu perfil
-app.put('/meu-perfil', (req, res) => {
-  con.query("UPDATE usuario SET ? WHERE ID_Usuario = ? SET Tipo_usuario = ?, Experiencia = ?", [req.body.usuario, req.body.Tipo_usuario, req.body.Experiencia], (error, result) => {
-    if (error) {
-      return res.status(500)
-      .send({msg:`Erro ao atualizar os dados ${error}`})
-    }
-    res.status(200)
-    .send({msg:`Dados atualizados`,payload:result});
-  })
-})
 
-app.put(`/meu-perfil`, (req,res) =>{
-  con.query("UPDATE dados_pessoais SET ? WHERE ID_DadosPessoais = ? SET CPF = ?, Rg= ?, Data_Nascimento = ?, Sexo = ?, Celular = ?" [req.body.dados_pessoais, req.body.CPF, req.body.Rg, req.body.Data_Nascimento, req.body.Sexo, req.body.Celular], (error,result) =>{
+app.put('/meu-perfil/:id', (req, res) => {
+  const id = req.params.id;
+  const dados = req.body;
+
+  const query = "UPDATE usuario SET ? WHERE ID_Usuario = ?";
+
+  con.query(query, [dados, id], (error, result) => {
     if (error) {
-      return res.status(500)
-      .send({msg:`Erro ao atualizar os dados de cadastro ${error}`})
+      return res.status(500).send({ msg: `Erro ao atualizar os dados: ${error}` });
     }
-    res.status(200)
-      .send({msg:`Dados atualizados`,payload:result});
-  })
-})
+
+    res.status(200).send({ msg: "Dados do usuário atualizados com sucesso", payload: result });
+  });
+});
+
+// app.put('/meu-perfil/tipo-usuario/:id', (req, res) => {
+//   // con.query("UPDATE usuario SET ? WHERE ID_Usuario = ?", [req.body, req.params.id], (error, result) => {
+//   //   if (error) {
+//   //     return res.status(500)
+//   //     .send({msg:`Erro ao atualizar os dados ${error}`})
+//   //   }
+//   //   res.status(200)
+//   //   .send({msg:`Dados atualizados`,payload:result});
+//   // })
+//   console.log(req.body)
+// })
+app.post('/meu-perfil/inserir-endereco/', (req, res) => {
+  const {
+    ID_Usuario,
+    CEP,
+    Endereco, // Logradouro
+    Numero,
+    Bairro,
+    Cidade,
+    Estado
+  } = req.body;
+
+  const query = `
+    INSERT INTO enderecos 
+      (ID_Usuario, CEP, Logradouro, Numero, Bairro, Cidade, Estado)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [ID_Usuario, CEP, Endereco, Numero, Bairro, Cidade, Estado];
+
+  console.log("Dados recebidos para inserir:", values);
+
+  con.query(query, values, (error, result) => {
+    if (error) {
+      return res.status(500).send({ msg: `Erro ao inserir endereço: ${error}` });
+    }
+
+    res.status(200).send({ msg: "Endereço inserido com sucesso", payload: result });
+  });
+});
+
+app.put('/meu-perfil/alterar-dados-pessoais/:id', (req, res) => {
+  console.log(req.body)
+  console.log(req.params.id)
+  const id = req.params.id;
+  const {
+    CPF,
+    RG,
+    Data_Nascimento,
+    Genero,
+    Celular,
+    CEP,
+    Endereco,
+    Numero,
+    Bairro,
+    Cidade,
+    Estado
+  } = req.body;
+
+  // 1. Atualiza dados pessoais
+  const queryDadosPessoais = `
+    UPDATE dados_pessoais
+    SET CPF = ?, RG = ?, Data_Nascimento = ?, Genero = ?, Celular = ?
+    WHERE ID_Usuario = ?
+  `;
+
+  const valoresPessoais = [CPF, RG, Data_Nascimento, Genero, Celular, id];
+
+  con.query(queryDadosPessoais, valoresPessoais, (erro1, resultado1) => {
+    if (erro1) {
+      return res.status(500).send({ msg: `Erro ao atualizar dados pessoais: ${erro1}` });
+    }
+
+    // 2. Verifica se já existe endereço para esse usuário
+    const queryVerificaEndereco = `SELECT * FROM enderecos WHERE ID_Usuario = ?`;
+    con.query(queryVerificaEndereco, [id], (erro2, resultados) => {
+      if (erro2) {
+        return res.status(500).send({ msg: `Erro ao verificar endereço: ${erro2}` });
+      }
+
+      // Se já existe, faz UPDATE
+      if (resultados.length > 0) {
+        const queryUpdateEndereco = `
+          UPDATE enderecos
+          SET CEP = ?, Logradouro = ?, Numero = ?, Bairro = ?, Cidade = ?, Estado = ?
+          WHERE ID_Usuario = ?
+        `;
+        const valoresEndereco = [CEP, Endereco, Numero, Bairro, Cidade, Estado, id];
+        console.log("Dados recebidos para atualizar:", valoresEndereco);
+
+        con.query(queryUpdateEndereco, valoresEndereco, (erro3, resultado3) => {
+          console.log("Dados recebidos para atualizar:", resultado3);
+          if (erro3) {
+            return res.status(500).send({ msg: `Erro ao atualizar endereço: ${erro3}` });
+          }
+
+          return res.status(200).send({ msg: "Dados atualizados com sucesso!" });
+        });
+
+      } else {
+        // Senão, faz INSERT
+        const queryInsertEndereco = `
+          INSERT INTO enderecos (CEP, Logradouro, Numero, Bairro, Cidade, Estado, ID_Usuario)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        const valoresEndereco = [CEP, Endereco, Numero, Bairro, Cidade, Estado, id];
+
+        con.query(queryInsertEndereco, valoresEndereco, (erro4, resultado4) => {
+          if (erro4) {
+            return res.status(500).send({ msg: `Erro ao inserir endereço: ${erro4}` });
+          }
+
+          return res.status(200).send({ msg: "Dados pessoais e endereço inseridos com sucesso!" });
+        });
+      }
+    });
+  });
+});
+
+
+
+// app.put(`/meu-perfil/alterar-dados-pessoais/:id`, (req,res) =>{
+//   // con.query("UPDATE dados_pessoais SET ? WHERE ID_DadosPessoais = ? SET CPF = ?, Rg= ?, Data_Nascimento = ?, Genero = ?, Celular = ?, CEP = ?, Logradouro = ?, Numero = ?, Complemento = ?, Bairro = ?, Cidade = ?, Estado = ?" 
+//   //   [req.body.dados_pessoais, req.body.CPF, req.body.Rg, req.body.Data_Nascimento, req.body.Genero, req.body.Celular, req.body.CEP, req.body.logradouro, req.body.Numero, req.body.Complemento, req.body.Bairro, req.body.Cidade, req.body.Estado], (error,result) =>{
+//   //   if (error) {
+//   //     return res.status(500)
+//   //     .send({msg:`Erro ao atualizar os dados de cadastro ${error}`})
+//   //   }
+//   //   res.status(200)
+//   //     .send({msg:`Dados atualizados`,payload:result});
+//   // })
+//   console.log(req.body)
+// })
 
 
 //============================================================================================================
@@ -478,9 +625,92 @@ app.put('/config/senha/:ID_Usuario', (req, resultado) => {
 // ============================================================================================================
 
 // Reserva pós a confirmação 
+app.post('/api/agendamentos', (req, res) => {
+  const {
+    data_inicio,
+    data_conclusao,
+    pets,
+    especie,
+    localizacao,
+    bairro,
+    Tipo_Contato,
+    idServico,
+    idCuidador,
+    idTutor
+  } = req.body;
+
+  // Validação básica
+  if (!data_inicio || !data_conclusao || !pets || !especie || !localizacao || !bairro || !idServico || !idCuidador || !idTutor || !Tipo_Contato) {
+    return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+  }
+
+  // 1. Buscar preço do serviço
+  const getServiceQuery = `SELECT preco_servico FROM servicos WHERE ID_Servico = ?`;
+
+  con.query(getServiceQuery, [idServico], (err, serviceResult) => {
+    if (err || serviceResult.length === 0) {
+      return res.status(500).json({ error: 'Erro ao buscar serviço.' });
+    }
+
+    const precoDia = parseFloat(serviceResult[0].preco_servico);
+
+    // 2. Calcular quantidade de dias
+    const inicio = new Date(data_inicio);
+    const fim = new Date(data_conclusao);
+    const dias = Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24)) || 1;
+    const valorTotal = precoDia * dias;
+
+    // 3. Inserir recibo
+    const insertReciboQuery = `
+      INSERT INTO recibo (Detalhes, Cuidador, Tutor, ID_Pet, ID_Servico, Data_pagamento, Tipo_Contato)
+      VALUES (?, ?, ?, ?, ?, NOW(), ?)
+    `;
+    const detalhes = `Reserva de ${dias} dia(s) para ${pets} (${especie})`;
+
+    // Aqui ainda estamos usando ID_Pet = 1 como placeholder
+    con.query(insertReciboQuery, [detalhes, idCuidador, idTutor, 1, idServico, Tipo_Contato], (err, reciboResult) => {
+      if (err) {
+        return res.status(500).json({ error: 'Erro ao inserir recibo.' });
+      }
+
+      const idRecibo = reciboResult.insertId;
+
+      // 4. Inserir agendamento
+      const insertAgendamentoQuery = `
+        INSERT INTO agendamento (
+          ID_Servico, Cuidador, Tutor, ID_Recibo, data_inicio, data_conclusao
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `;
+
+      const agendamentoValues = [
+        idServico,
+        idCuidador,
+        idTutor,
+        idRecibo,
+        data_inicio,
+        data_conclusao
+      ];
+
+      con.query(insertAgendamentoQuery, agendamentoValues, (err, result) => {
+        if (err) {
+          return res.status(500).json({ error: 'Erro ao salvar agendamento.' });
+        }
+
+        res.status(201).json({
+          msg: 'Agendamento salvo com sucesso.',
+          idAgendamento: result.insertId,
+          valorTotal: `R$${valorTotal.toFixed(2)}`
+        });
+      });
+    });
+  });
+});
 
 
-  
+
+  // ====================================================================================================================
+
+
   
 
 
@@ -496,8 +726,3 @@ app.put('/config/senha/:ID_Usuario', (req, resultado) => {
 app.listen(3000,()=>{
     console.log("Servidor online http://127.0.0.1:3000");   
 });
-
-
-
-
-
