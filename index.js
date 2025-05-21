@@ -377,70 +377,46 @@ app.put('/meu-perfil/alterar-dados-pessoais/:id', (req, res) => {
 
 //============================================================================================================
 
-// Area pet
-
-
-// ✅ POST - Cadastrar pet
-app.post('/pet', (req, res) => {
+app.post('/meu-perfil/:id/cad-pet', (req, res) => {
+  console.log(req.body)
+  console.log(req.params.id)
+  const id = req.params.id;
   const {
-    ID_Usuario, Nome, Sexo, Idade, Data_Nascimento,
-    Especie, Raca, Porte, Castrado, Restricoes,
-    Comportamento, Preferencias, Saude
+    ID_Servico, Cuidador, Tutor, ID_Recibo,
+    data_inicio, data_conclusao,
+    ID_Pet, ID_Endereco,
+    Periodo_entrada, Periodo_saida,
+    Instru_Pet, Itens_Pet
   } = req.body;
 
-  con.query(`
-    INSERT INTO pet (
-      ID_Usuario, Nome, Sexo, Idade, Data_Nascimento,
-      Especie, Raca, Porte, Castrado, Restricoes,
-      Comportamento, Preferencias, Saude
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
-    ID_Usuario, Nome, Sexo, Idade, Data_Nascimento,
-    Especie, Raca, Porte, Castrado, Restricoes,
-    Comportamento, Preferencias, Saude
-  ], (error, result) => {
-    if (error) {
-      return res.status(500).send({ msg: "Erro ao inserir o pet" });
+  const sql = `
+    INSERT INTO agendamento (
+      ID_Servico, Cuidador, Tutor, ID_Recibo,
+      data_inicio, data_conclusao,
+      ID_Pet, ID_Endereco,
+      Periodo_entrada, Periodo_saida,
+      Instru_Pet, Itens_Pet
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    ID_Servico, Cuidador, Tutor, ID_Recibo,
+    data_inicio, data_conclusao,
+    ID_Pet, ID_Endereco,
+    Periodo_entrada, Periodo_saida,
+    Instru_Pet, Itens_Pet, id
+  ];
+
+  con.query(sql, values, (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: "Erro ao agendar", error: err });
     }
-    res.status(201).send({ msg: "Pet inserido com sucesso", id: result.insertId });
+    res.status(201).send({ msg: "Agendamento realizado com sucesso", payload: result });
   });
 });
 
 
-// ✅ GET - Listar pets
-app.get('/pet_listar', (req, res) => {
-  con.query('SELECT * FROM Pet', (err, results) => {
-    if (err) return res.status(500).json({ error: 'Erro ao buscar pets' });
-    res.json(results);
-  });
-});
 
-
-// ✅ PUT - Atualizar pet
-app.put('/pet_Atualizar/:ID_Pet', (req, res) => {
-  const ID_Pet = req.params.ID_Pet;
-  const {
-    Nome, Sexo, Idade, Data_Nascimento,
-    Especie, Raca, Porte, Castrado, Restricoes,
-    Comportamento, Preferencias, Saude
-  } = req.body;
-
-  con.query(`
-    UPDATE Pet SET
-      Nome = ?, Sexo = ?, Idade = ?, Data_Nascimento = ?,
-      Especie = ?, Raca = ?, Porte = ?, Castrado = ?, Restricoes = ?,
-      Comportamento = ?, Preferencias = ?, Saude = ?
-    WHERE ID_Pet = ?
-  `, [
-    Nome, Sexo, Idade, Data_Nascimento,
-    Especie, Raca, Porte, Castrado, Restricoes,
-    Comportamento, Preferencias, Saude,
-    ID_Pet
-  ], (err, result) => {
-    if (err) return res.status(500).json({ error: 'Erro ao atualizar pet' });
-    res.json({ message: 'Pet atualizado com sucesso' });
-  });
-});
 
 
 // ✅ DELETE - Remover pet
@@ -462,34 +438,60 @@ app.delete('/delete_pet/:ID_Pet', (req, res) => {
 // Na Area de configurações somente iremos atualizar às informações do usuario,
 // na parte final apresenta apenas o botão de delete 
 
+// ✅ Get - Listando as configurações do usuário
 
-// ✅ PUT - Atualizar configurações do usuário
+app.get('/meu-perfil/config/:id', (req, res) => {
+  const ID_Usuario = req.params.id;
 
-app.put('/config/:ID_Usuario', (req, res) => {
-  const ID_Usuario = req.params.ID_Usuario;
+  con.query(`
+    SELECT * FROM usuario us
+    INNER JOIN dados_pessoais dp ON us.ID_Usuario = dp.ID_Usuario
+    WHERE us.ID_Usuario = ?
+  `, [ID_Usuario], (error, result) => {
+    if (error) {
+      return res.status(500).send({ msg: `Erro ao listar configurações: ${error}` });
+    }
+    res.status(200).json(result);
+  });
+});
+
+
+//  PUT - Atualizar configurações do usuário
+
+app.put('/meu-perfil/config/:id', (req, res) => {
+  const ID_Usuario = req.params.id;
   const {
-    Nome, Sobrenome, Telefone, CPF, Email_usuario
+    Nome, Sobrenome, Celular, Email_usuario
   } = req.body;
 
   con.query(`
-    UPDATE usuario SET
-      Nome = ?, Sobrenome = ?, Telefone = ?, 
-      CPF = ?, Email_usuario = ?
+    UPDATE dados_pessoais SET
+      Nome = ?, Sobrenome = ?, Celular = ?
     WHERE ID_Usuario = ?
   `, [
-    Nome, Sobrenome, Telefone, CPF, 
-    Email_usuario, ID_Usuario
+    Nome, Sobrenome, Celular, ID_Usuario
   ], (error, result) => {
     if (error) {
       return res.status(500).send({ msg: `Erro ao atualizar configurações: ${error}` });
     }
-    res.status(404).json({ msg: "Configurações atualizadas com sucesso", payload: result });
+    con.query(`
+      UPDATE usuario SET
+       Email_usuario = ?
+      WHERE ID_Usuario = ?
+    `, [
+      Email_usuario, ID_Usuario
+    ], (erro, resultado) => {
+      if (erro) {
+        return res.status(500).send({ msg: `Erro ao atualizar configurações: ${erro}` });
+      }
+    res.status(200).json({ msg: "Configurações atualizadas com sucesso", payload: result });
+    });
   });
-});
+})
 
 // Aqui estamos atualizando a senha. 
 
-app.put('/config/senha/:ID_Usuario', (req, resultado) => {
+app.put('meu-perfil/config/senha/:ID_Usuario', (req, resultado) => {
   const ID_Usuario = req.params.ID_Usuario;
   const {
     Senha_usuario
@@ -506,12 +508,65 @@ app.put('/config/senha/:ID_Usuario', (req, resultado) => {
       }
       resultado.status(404).json({msg: "Sua senha foi alterada com sucesso!!!"})
     });
+  })
+
+
+  // Deletando a conta do usuário
+  // ✅ DELETE - Deletar conta do usuário
+app.delete('meu-perfil/config/:ID_Usuario', (req, res) => {
+  const ID_Usuario = req.params.ID_Usuario;
+
+  con.query(`
+    DELETE FROM usuario WHERE ID_Usuario = ?
+  `, [ID_Usuario], (error, result) => {
+    if (error) {
+      return res.status(500).send({ msg: `Erro ao deletar conta: ${error}` });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).send({ msg: "Usuário não encontrado." });
+    }
+
+    res.status(200).send({ msg: "Conta deletada com sucesso." });
   });
+});
+
 
   // =============================================================================
-   
-  // Area de Hospedagem/PetSitter
-  // ✅ GET - Listar Hospedagem
+   // Area de pesquisa da hospedagem
+   // ✅ Post - Pesquisar hospedagem
+
+   app.post('/escolha-hospedagem-petsitter/agendamento', (req, res) => {
+    const {
+      
+      dataInicio,
+      dataFim,
+      servico,
+      estado,
+      cidade,
+      tipoPet,
+      quantidade
+    } = req.body;
+  
+    con.query(`
+      INSERT INTO agendamento 
+      ( Data_Inicio, Data_Fim, Servico, Estado, Cidade, TipoPet, Quantidade) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, 
+      [ dataInicio, dataFim, servico, estado, cidade, tipoPet, quantidade],
+      (error, result) => {
+        if (error) {
+          console.error(error);
+          return res.status(500).json({ msg: 'Erro ao registrar reserva' });
+        }
+  
+        res.status(201).json({ msg: 'Reserva criada com sucesso', idReserva: result.insertId });
+      });
+  });
+  
+
+  // =============================================================================
+  // Area de Hospedagem para Reserva
+  // ✅ GET - Listar Hospedagem para a reserva
   app.get('/listar_hosp', (req, res) => {
     con.query("SELECT * FROM servicos", (error, result) => {
       if (error) {
@@ -521,21 +576,51 @@ app.put('/config/senha/:ID_Usuario', (req, resultado) => {
     });
   });
 
-  // ✅ POST - Cadastrar a hospedagem
-  app.post('/cad_Hosp', (req, res) => {
-    const { Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao } = req.body;
+  app.post('/reservar', (req, res) => {
+    const {
+      ID_Servico,
+      Tutor,
+      data_inicio,
+      data_conclusao,
+      ID_Pet,
+      ID_Endereco
+    } = req.body;
   
-    con.query(
-      `INSERT INTO servicos (Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao) VALUES (?, ?, ?, ?, ?, ?)`,
-      [Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao],
-      (err, result) => {
-        if (err) {
-          return res.status(500).send({ msg: `Erro ao cadastrar serviço: ${err}` });
-        }
-        res.status(201).send({ msg: "Serviço cadastrado com sucesso", id: result.insertId });
+    // Buscar o cuidador automaticamente com base no ID_Servico
+    con.query('SELECT Cuidador FROM servicos WHERE ID_Servico = ?', [ID_Servico], (err, result) => {
+      if (err || result.length === 0) {
+        return res.status(400).send({ msg: 'Serviço inválido ou não encontrado', error: err });
       }
-    );
+  
+      const Cuidador = result[0].Cuidador;
+  
+      // Inserir na tabela de agendamentos
+      const sql = `
+        INSERT INTO agendamentos 
+        (ID_Servico, Cuidador, Tutor, ID_Recibo, data_inicio, data_conclusao, ID_Pet, ID_Endereco, ID_Usuario) 
+        VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)
+      `;
+  
+      const values = [
+        ID_Servico,
+        Cuidador,
+        Tutor,
+        data_inicio,
+        data_conclusao,
+        ID_Pet,
+        ID_Endereco,
+        Tutor // mesma pessoa que `ID_Usuario`
+      ];
+  
+      con.query(sql, values, (error, resultInsert) => {
+        if (error) {
+          return res.status(500).send({ msg: 'Erro ao realizar a reserva', error: error });
+        }
+        res.status(201).send({ msg: 'Reserva realizada com sucesso', ID_agendamento: resultInsert.insertId });
+      });
+    });
   });
+   
 
   // ✅ PUT - Atualizar a hospedagem
   app.put('/atualizar_Hosp/:ID_Servico', (req, res) => {
@@ -580,10 +665,10 @@ app.put('/config/senha/:ID_Usuario', (req, resultado) => {
  // ✅ POST - Confirmar reserva
 
   app.post('/confirmar_reserva', (req, res) => {
-    const { ID_Usuario, ID_Servico, ID_Pet } = req.body;
+    const { ID_Usuario, ID_Servico, ID_Pet, ID_Agendamento, ID } = req.body;
     con.query(
-      `INSERT INTO reserva (ID_Usuario, ID_Servico, ID_Pet) VALUES (?, ?, ?)`,
-      [ID_Usuario, ID_Servico, ID_Pet],
+      `INSERT INTO reserva (ID_Usuario, ID_Servico, ID_Pet, ID_Agendamento) VALUES (?, ?, ?)`,
+      [ID_Usuario, ID_Servico, ID_Pet, ID_Agendamento],
       (err, result) => {
         if (err) {
           return res.status(500).send({ msg: `Erro ao confirmar reserva: ${err}` });
