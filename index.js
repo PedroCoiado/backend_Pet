@@ -83,6 +83,7 @@ app.get('/listar_user', (req, res) => {
 
 // Segunda rota para cadastrar um novo usuário no banco
 app.post('/cad_user', (req, res) => {
+  console.log(req.body)
     let sh = req.body.Senha_usuario;
 
 // Aqui estamos criando uma rota para cadastrar um novo usuário 
@@ -196,29 +197,6 @@ app.post('/login', (req, res) => {
 
 
 
-//===================================================================================================
-
-//Meu perfil
-
-
-// app.post('/meu-perfil', (req, body) => {
-//   const { experiencia,  } = req.body;
-//   con.query("INSERT * FROM dados_pessoais WHERE ID_Usuario = 
-// });
-
-
-// Inserir Dados no Perfil
-
-app.put(`/meu-perfil`, (req, body) => {
-
-con.query
-
-
-
-
-})
-
-
 // =============================================================================================================
 
 
@@ -239,17 +217,6 @@ app.put('/meu-perfil/:id', (req, res) => {
   });
 });
 
-// app.put('/meu-perfil/tipo-usuario/:id', (req, res) => {
-//   // con.query("UPDATE usuario SET ? WHERE ID_Usuario = ?", [req.body, req.params.id], (error, result) => {
-//   //   if (error) {
-//   //     return res.status(500)
-//   //     .send({msg:`Erro ao atualizar os dados ${error}`})
-//   //   }
-//   //   res.status(200)
-//   //   .send({msg:`Dados atualizados`,payload:result});
-//   // })
-//   console.log(req.body)
-// })
 app.post('/meu-perfil/inserir-endereco/', (req, res) => {
   const {
     ID_Usuario,
@@ -295,15 +262,32 @@ app.put('/meu-perfil/alterar-dados-pessoais/:id', (req, res) => {
     Numero,
     Bairro,
     Cidade,
-    Estado
+    Estado,
+    Tipo_usuario
   } = req.body;
 
   // 1. Atualiza dados pessoais
   const queryDadosPessoais = `
     UPDATE dados_pessoais
-    SET CPF = ?, RG = ?, Data_Nascimento = ?, Genero = ?, Celular = ?
+    SET CPF = ?, RG = ?, Data_Nascimento = ?, Genero = ?, Celular = ? 
     WHERE ID_Usuario = ?
   `;
+
+  // Se o Tipo_usuario for diferente de null, atualiza também na tabela usuario
+  if (Tipo_usuario) {
+    const queryTipoUsuario = `
+      UPDATE usuario
+      SET Tipo_usuario = ?
+      WHERE ID_Usuario = ?
+    `;
+    con.query(queryTipoUsuario, [Tipo_usuario, id], (erroTipo, resultadoTipo) => {
+      if (erroTipo) {
+        return res.status(500).send({ msg: `Erro ao atualizar tipo de usuário: ${erroTipo}` });
+      }
+    });
+  }
+  // Atualiza os dados pessoais
+
 
   const valoresPessoais = [CPF, RG, Data_Nascimento, Genero, Celular, id];
 
@@ -359,75 +343,147 @@ app.put('/meu-perfil/alterar-dados-pessoais/:id', (req, res) => {
   });
 });
 
-
-
-// app.put(`/meu-perfil/alterar-dados-pessoais/:id`, (req,res) =>{
-//   // con.query("UPDATE dados_pessoais SET ? WHERE ID_DadosPessoais = ? SET CPF = ?, Rg= ?, Data_Nascimento = ?, Genero = ?, Celular = ?, CEP = ?, Logradouro = ?, Numero = ?, Complemento = ?, Bairro = ?, Cidade = ?, Estado = ?" 
-//   //   [req.body.dados_pessoais, req.body.CPF, req.body.Rg, req.body.Data_Nascimento, req.body.Genero, req.body.Celular, req.body.CEP, req.body.logradouro, req.body.Numero, req.body.Complemento, req.body.Bairro, req.body.Cidade, req.body.Estado], (error,result) =>{
-//   //   if (error) {
-//   //     return res.status(500)
-//   //     .send({msg:`Erro ao atualizar os dados de cadastro ${error}`})
-//   //   }
-//   //   res.status(200)
-//   //     .send({msg:`Dados atualizados`,payload:result});
-//   // })
-//   console.log(req.body)
-// })
-
-
 //============================================================================================================
 
+// ✅ POST - Cadastrar pet
 app.post('/meu-perfil/:id/cad-pet', (req, res) => {
-  console.log(req.body)
-  console.log(req.params.id)
-  const id = req.params.id;
   const {
-    ID_Servico, Cuidador, Tutor, ID_Recibo,
-    data_inicio, data_conclusao,
-    ID_Pet, ID_Endereco,
-    Periodo_entrada, Periodo_saida,
-    Instru_Pet, Itens_Pet
+    ID_Usuario,
+    Nome,
+    Sexo,
+    Idade,
+    Data_Nascimento,
+    Especie,
+    Raca,
+    Porte,
+    Castrado,
+    Restricoes,
+    Comportamento,
+    Preferencias,
+    Foto_pet
   } = req.body;
 
-  const sql = `
-    INSERT INTO agendamento (
-      ID_Servico, Cuidador, Tutor, ID_Recibo,
-      data_inicio, data_conclusao,
-      ID_Pet, ID_Endereco,
-      Periodo_entrada, Periodo_saida,
-      Instru_Pet, Itens_Pet
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  console.log("Dados recebidos para cadastrar:", req.body);
+
+  const query = `
+    INSERT INTO pet (
+      ID_Usuario,
+      Nome, Sexo, Idade, Data_Nascimento, Especie, Raca, Porte,
+      Castrado, Restricoes, Comportamento, Preferencias, Foto_pet
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   const values = [
-    ID_Servico, Cuidador, Tutor, ID_Recibo,
-    data_inicio, data_conclusao,
-    ID_Pet, ID_Endereco,
-    Periodo_entrada, Periodo_saida,
-    Instru_Pet, Itens_Pet, id
+    ID_Usuario,
+    Nome,
+    Sexo,
+    Idade,
+    Data_Nascimento,
+    Especie,
+    Raca,
+    Porte,
+    Castrado,
+    Restricoes,
+    Comportamento,
+    Preferencias,
+    Foto_pet
   ];
 
-  con.query(sql, values, (err, result) => {
+  con.query(query, values, (err, result) => {
     if (err) {
-      return res.status(500).send({ msg: "Erro ao agendar", error: err });
+      return res.status(500).send({ msg: "Erro ao cadastrar o pet", error: err });
     }
-    res.status(201).send({ msg: "Agendamento realizado com sucesso", payload: result });
+    console.log("✅ Pets encontrados:", result);
+    res.status(201).send({ msg: "Pet cadastrado com sucesso", payload: result });
+  });
+});
+
+
+// ✅ GET - Listar pets do usuário
+app.get('/meu-perfil/:id/listar_pet/:ID_Usuario', (req, res) => {
+  const ID_Usuario = req.params.ID_Usuario;
+
+  console.log("🔎 Buscando pets do usuário:", ID_Usuario);
+
+  con.query(`SELECT * FROM pet WHERE ID_Usuario = ?`, [ID_Usuario], (error, result) => {
+    if (error) {
+      console.error("❌ Erro ao listar pets:", error);
+      return res.status(500).send({ msg: `Erro ao listar pets: ${error}` });
+    }
+    console.log("✅ Pets encontrados:", result);
+    res.status(200).json(result);
   });
 });
 
 
 
+app.put('/meu-perfil/:id/atualizar_pet/:id', (req, res) => {
+  const { ID_Usuario, ID_Pet } = req.params;
+
+  console.log(req.body);
+  console.log(req.params.ID_Usuario);
+  console.log(req.params.ID_Pet);
+
+  const {
+    Nome,
+    Sexo,
+    Idade,
+    Data_Nascimento,
+    Especie,
+    Raca,
+    Porte,
+    Castrado,
+    Restricoes,
+    Comportamento,
+    Preferencias,
+    Foto_pet
+  } = req.body;
+
+  const query = `
+    UPDATE pet SET
+      Nome = ?, Sexo = ?, Idade = ?, Data_Nascimento = ?, Especie = ?, Raca = ?, Porte = ?,
+      Castrado = ?, Restricoes = ?, Comportamento = ?, Preferencias = ?, Foto_pet = ?
+    WHERE ID_Pet = ? AND ID_Usuario = ?
+  `;
+
+  const values = [
+    Nome, Sexo, Idade, Data_Nascimento, Especie, Raca, Porte,
+    Castrado, Restricoes, Comportamento, Preferencias, Foto_pet,
+    ID_Pet, ID_Usuario
+  ];
+
+  con.query(query, values, (error, result) => {
+    if (error) {
+      console.error("❌ Erro na atualização do pet:", error);
+      return res.status(500).send({ msg: `Erro ao atualizar pet: ${error}` });
+    }
+    res.status(200).json({ msg: "Pet atualizado com sucesso", payload: result });
+  });
+});
+
 
 
 // ✅ DELETE - Remover pet
-app.delete('/delete_pet/:ID_Pet', (req, res) => {
-  con.query("DELETE FROM Pet WHERE ID_Pet = ?",[req.params.ID_Pet], (error, result) => {
-      if (error) {
-          return res.status(500) // Se houver um erro, retornamos o erro
-          .send({error:`Erro ao deletar os dados, ${error}`});
-      }
-      res.status(200)
-      .send({msg:`dados deletado`,payload:result});
+app.delete('meu-perfil/:id/delete-pet/:id', (req, res) => {
+  const { ID_Pet, ID_Usuario } = req.params;
+
+  console.log(`Tentando deletar pet ID: ${ID_Pet} do usuário ID: ${ID_Usuario}`);
+
+  const query = `DELETE FROM pet WHERE ID_Pet = ? AND ID_Usuario = ?`;
+
+  con.query(query, [ID_Pet, ID_Usuario], (error, result) => {
+    if (error) {
+      console.error("Erro ao deletar pet:", error);
+      return res.status(500).send({ error: `Erro ao deletar os dados: ${error}` });
+    }
+
+    if (result.affectedRows === 0) {
+      console.warn("Nenhum pet encontrado para deletar com os parâmetros informados.");
+      return res.status(404).send({ msg: "Pet não encontrado ou não pertence ao usuário informado." });
+    }
+
+    console.log("Pet deletado com sucesso:", result);
+    res.status(200).send({ msg: "Pet deletado com sucesso", payload: result });
   });
 });
 
@@ -567,96 +623,198 @@ app.delete('meu-perfil/config/:ID_Usuario', (req, res) => {
   // =============================================================================
   // Area de Hospedagem para Reserva
   // ✅ GET - Listar Hospedagem para a reserva
-  app.get('/listar_hosp', (req, res) => {
-    con.query("SELECT * FROM servicos", (error, result) => {
-      if (error) {
-        return res.status(500).send({ msg: `Erro ao listar serviços: ${error}` });
-      }
-      res.status(200).json(result);
-    });
-  });
 
-  app.post('/reservar', (req, res) => {
-    const {
-      ID_Servico,
-      Tutor,
-      data_inicio,
-      data_conclusao,
-      ID_Pet,
-      ID_Endereco
-    } = req.body;
-  
-    // Buscar o cuidador automaticamente com base no ID_Servico
-    con.query('SELECT Cuidador FROM servicos WHERE ID_Servico = ?', [ID_Servico], (err, result) => {
-      if (err || result.length === 0) {
-        return res.status(400).send({ msg: 'Serviço inválido ou não encontrado', error: err });
+  // 📦 Listar serviços disponíveis (hospedagem)
+app.get('/listar_hosp', (req, res) => {
+  con.query("SELECT * FROM servicos", (error, result) => {
+    if (error) {
+      return res.status(500).send({ msg: `Erro ao listar serviços: ${error}` });
+    }
+    res.status(200).json(result);
+  });
+});
+
+
+// 📝 Realizar uma reserva de hospedagem
+app.post('/reserva', (req, res) => {
+  const {
+    ID_Servico,
+    Cuidador,
+    Tutor,
+    data_inicio,
+    data_conclusao,
+    ID_Pet,
+    ID_Endereco,
+    Periodo_entrada,
+    Periodo_saida,
+    Instru_Pet,
+    Itens_Pet
+  } = req.body;
+
+  // Buscar cuidador automaticamente com base no serviço
+  con.query('SELECT Cuidador FROM servicos WHERE ID_Servico = ?', [ID_Servico], (err, result) => {
+    if (err || result.length === 0) {
+      return res.status(400).send({ msg: 'Serviço inválido ou não encontrado', error: err });
+    }
+
+    const Cuidador = result[0].Cuidador;
+
+    const sql = `
+      INSERT INTO agendamento (
+        ID_Servico, Cuidador, Tutor, ID_Recibo,
+        data_inicio, data_conclusao,
+        ID_Pet, ID_Endereco,
+        Periodo_entrada, Periodo_saida,
+        Instru_Pet, Itens_Pet
+      ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      ID_Servico, Cuidador, Tutor,
+      data_inicio, data_conclusao,
+      ID_Pet, ID_Endereco,
+      Periodo_entrada, Periodo_saida,
+      Instru_Pet, Itens_Pet
+    ];
+
+    con.query(sql, values, (error, resultInsert) => {
+      if (error) {
+        return res.status(500).send({ msg: 'Erro ao realizar a reserva', error: error });
       }
-  
-      const Cuidador = result[0].Cuidador;
-  
-      // Inserir na tabela de agendamentos
-      const sql = `
-        INSERT INTO agendamentos 
-        (ID_Servico, Cuidador, Tutor, ID_Recibo, data_inicio, data_conclusao, ID_Pet, ID_Endereco, ID_Usuario) 
-        VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)
-      `;
-  
-      const values = [
-        ID_Servico,
-        Cuidador,
-        Tutor,
-        data_inicio,
-        data_conclusao,
-        ID_Pet,
-        ID_Endereco,
-        Tutor // mesma pessoa que `ID_Usuario`
-      ];
-  
-      con.query(sql, values, (error, resultInsert) => {
-        if (error) {
-          return res.status(500).send({ msg: 'Erro ao realizar a reserva', error: error });
-        }
-        res.status(201).send({ msg: 'Reserva realizada com sucesso', ID_agendamento: resultInsert.insertId });
-      });
+      res.status(201).send({ msg: 'Reserva realizada com sucesso', ID_agendamento: resultInsert.insertId });
     });
   });
+});
+
+
+// ✏️ Atualizar um serviço de hospedagem
+app.put('/atualizar_Hosp/:ID_Servico', (req, res) => {
+  const ID_Servico = req.params.ID_Servico;
+  const { Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao } = req.body;
+
+  const sql = `
+    UPDATE servicos SET 
+      Cuidador = ?, Tipo_servico = ?, Preco_servico = ?, 
+      qtd_pets = ?, Porte_pet = ?, Situacao = ?
+    WHERE ID_Servico = ?
+  `;
+
+  const values = [
+    Cuidador, Tipo_servico, Preco_servico,
+    qtd_pets, Porte_pet, Situacao, ID_Servico
+  ];
+
+  con.query(sql, values, (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: `Erro ao atualizar serviço: ${err}` });
+    }
+    res.status(200).send({ msg: "Serviço atualizado com sucesso", payload: result });
+  });
+});
+
+
+// 🗑️ Deletar um serviço de hospedagem
+app.delete('/delete_Hosp/:ID_Servico', (req, res) => {
+  const ID_Servico = req.params.ID_Servico;
+
+  con.query("DELETE FROM servicos WHERE ID_Servico = ?", [ID_Servico], (err, result) => {
+    if (err) {
+      return res.status(500).send({ msg: `Erro ao deletar serviço: ${err}` });
+    }
+    res.status(200).send({ msg: "Serviço deletado com sucesso", payload: result });
+  });
+});
+
+//   app.get('/listar_hosp', (req, res) => {
+//     con.query("SELECT * FROM servicos", (error, result) => {
+//       if (error) {
+//         return res.status(500).send({ msg: `Erro ao listar serviços: ${error}` });
+//       }
+//       res.status(200).json(result);
+//     });
+//   });
+
+//   app.post('/reservar', (req, res) => {
+//     const {
+//       ID_Servico,
+//       Tutor,
+//       data_inicio,
+//       data_conclusao,
+//       ID_Pet,
+//       ID_Endereco
+//     } = req.body;
+  
+//     // Buscar o cuidador automaticamente com base no ID_Servico
+//     con.query('SELECT Cuidador FROM servicos WHERE ID_Servico = ?', [ID_Servico], (err, result) => {
+//       if (err || result.length === 0) {
+//         return res.status(400).send({ msg: 'Serviço inválido ou não encontrado', error: err });
+//       }
+  
+//       const Cuidador = result[0].Cuidador;
+  
+//       // Inserir na tabela de agendamentos
+//       const sql = `
+//         INSERT INTO agendamentos 
+//         (ID_Servico, Cuidador, Tutor, ID_Recibo, data_inicio, data_conclusao, ID_Pet, ID_Endereco, ID_Usuario) 
+//         VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)
+//       `;
+  
+//       const values = [
+//         ID_Servico,
+//         Cuidador,
+//         Tutor,
+//         data_inicio,
+//         data_conclusao,
+//         ID_Pet,
+//         ID_Endereco,
+//         Tutor // mesma pessoa que `ID_Usuario`
+//       ];
+  
+//       con.query(sql, values, (error, resultInsert) => {
+//         if (error) {
+//           return res.status(500).send({ msg: 'Erro ao realizar a reserva', error: error });
+//         }
+//         res.status(201).send({ msg: 'Reserva realizada com sucesso', ID_agendamento: resultInsert.insertId });
+//       });
+//     });
+//   });
    
 
-  // ✅ PUT - Atualizar a hospedagem
-  app.put('/atualizar_Hosp/:ID_Servico', (req, res) => {
-    const ID_Servico = req.params.ID_Servico;
-    const { Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao } = req.body;
+//   // ✅ PUT - Atualizar a hospedagem
+//   app.put('/atualizar_Hosp/:ID_Servico', (req, res) => {
+//     const ID_Servico = req.params.ID_Servico;
+//     const { Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao } = req.body;
   
-    con.query(
-      `UPDATE servicos SET 
-        Cuidador = ?, Tipo_servico = ?, Preco_servico = ?, 
-        qtd_pets = ?, Porte_pet = ?, Situacao = ?
-       WHERE ID_Servico = ?`,
-      [Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao, ID_Servico],
-      (err, result) => {
-        if (err) {
-          return res.status(500).send({ msg: `Erro ao atualizar serviço: ${err}` });
-        }
-        res.status(200).send({ msg: "Serviço atualizado com sucesso", payload: result });
-      }
-    );
-  });
+//     con.query(
+//       `UPDATE servicos SET 
+//         Cuidador = ?, Tipo_servico = ?, Preco_servico = ?, 
+//         qtd_pets = ?, Porte_pet = ?, Situacao = ?
+//        WHERE ID_Servico = ?`,
+//       [Cuidador, Tipo_servico, Preco_servico, qtd_pets, Porte_pet, Situacao, ID_Servico],
+//       (err, result) => {
+//         if (err) {
+//           return res.status(500).send({ msg: `Erro ao atualizar serviço: ${err}` });
+//         }
+//         res.status(200).send({ msg: "Serviço atualizado com sucesso", payload: result });
+//       }
+//     );
+//   });
 
-// ✅ DELETE  - Deletar a Hospedagem
-  app.delete('/delete_Hosp/:ID_Servico', (req, res) => {
-    const ID_Servico = req.params.ID_Servico;
+// // ✅ DELETE  - Deletar a Hospedagem
+//   app.delete('/delete_Hosp/:ID_Servico', (req, res) => {
+//     const ID_Servico = req.params.ID_Servico;
   
-    con.query(
-      "DELETE FROM servicos WHERE ID_Servico = ?",
-      [ID_Servico],
-      (err, result) => {
-        if (err) {
-          return res.status(500).send({ msg: `Erro ao deletar serviço: ${err}` });
-        }
-        res.status(200).send({ msg: "Serviço deletado com sucesso", payload: result });
-      }
-    );
-  });
+//     con.query(
+//       "DELETE FROM servicos WHERE ID_Servico = ?",
+//       [ID_Servico],
+//       (err, result) => {
+//         if (err) {
+//           return res.status(500).send({ msg: `Erro ao deletar serviço: ${err}` });
+//         }
+//         res.status(200).send({ msg: "Serviço deletado com sucesso", payload: result });
+//       }
+//     );
+//   });
 
   // ============================================================================================================================ 
 
