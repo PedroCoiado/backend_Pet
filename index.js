@@ -399,8 +399,7 @@ app.post('/meu-perfil/:id/cad-pet', (req, res) => {
 });
 
 
-// ✅ GET - Listar pets do usuário
-app.get('/meu-perfil/:id/listar_pet/:ID_Usuario', (req, res) => {
+app.get('/meu-perfil/:ID_Usuario/listar_pet', (req, res) => {
   const ID_Usuario = req.params.ID_Usuario;
 
   console.log("🔎 Buscando pets do usuário:", ID_Usuario);
@@ -417,12 +416,13 @@ app.get('/meu-perfil/:id/listar_pet/:ID_Usuario', (req, res) => {
 
 
 
-app.put('/meu-perfil/:id/atualizar_pet/:id', (req, res) => {
+
+app.put('/meu-perfil/:ID_Usuario/atualizar-pet/:ID_Pet', (req, res) => {
   const { ID_Usuario, ID_Pet } = req.params;
 
   console.log(req.body);
-  console.log(req.params.ID_Usuario);
-  console.log(req.params.ID_Pet);
+  console.log(ID_Usuario);
+  console.log(ID_Pet);
 
   const {
     Nome,
@@ -463,8 +463,9 @@ app.put('/meu-perfil/:id/atualizar_pet/:id', (req, res) => {
 
 
 
+
 // ✅ DELETE - Remover pet
-app.delete('meu-perfil/:id/delete-pet/:id', (req, res) => {
+app.delete('/meu-perfil/:ID_Usuario/delete-pet/:ID_Pet', (req, res) => {
   const { ID_Pet, ID_Usuario } = req.params;
 
   console.log(`Tentando deletar pet ID: ${ID_Pet} do usuário ID: ${ID_Usuario}`);
@@ -568,24 +569,31 @@ app.put('meu-perfil/config/senha/:ID_Usuario', (req, resultado) => {
 
 
   // Deletando a conta do usuário
-  // ✅ DELETE - Deletar conta do usuário
-app.delete('meu-perfil/config/:ID_Usuario', (req, res) => {
-  const ID_Usuario = req.params.ID_Usuario;
-
-  con.query(`
-    DELETE FROM usuario WHERE ID_Usuario = ?
-  `, [ID_Usuario], (error, result) => {
-    if (error) {
-      return res.status(500).send({ msg: `Erro ao deletar conta: ${error}` });
-    }
-
-    if (result.affectedRows === 0) {
-      return res.status(404).send({ msg: "Usuário não encontrado." });
-    }
-
-    res.status(200).send({ msg: "Conta deletada com sucesso." });
+  app.delete('/meu-perfil/config/:ID_Usuario', (req, res) => {
+    const ID_Usuario = req.params.ID_Usuario;
+  
+    // Primeiro remove os dados pessoais
+    con.query(`DELETE FROM dados_pessoais WHERE ID_Usuario = ?`, [ID_Usuario], (err1, result1) => {
+      if (err1) {
+        return res.status(500).send({ msg: `Erro ao deletar dados pessoais: ${err1}` });
+      }
+  
+      // Depois remove o usuário
+      con.query(`DELETE FROM usuario WHERE ID_Usuario = ?`, [ID_Usuario], (err2, result2) => {
+        if (err2) {
+          return res.status(500).send({ msg: `Erro ao deletar usuário: ${err2}` });
+        }
+  
+        if (result2.affectedRows === 0) {
+          return res.status(404).send({ msg: "Usuário não encontrado." });
+        }
+  
+        res.status(200).send({ msg: "Conta deletada com sucesso." });
+      });
+    });
   });
-});
+  
+  
 
 
   // =============================================================================
